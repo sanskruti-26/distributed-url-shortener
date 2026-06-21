@@ -1,0 +1,110 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: urlshortener
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Local Redis + a REST proxy in front of it, so the same @upstash/redis client
+  # code (REST-based) works identically in local Docker and on Vercel/Upstash in prod.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  redis-rest-proxy:
+    image: hiett/serverless-redis-http:latest
+    ports:
+      - "8079:80"
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: local_dev_token
+      SRH_CONNECTION_STRING: "redis://redis:6379"
+    depends_on:
+      - redis
+
+  # Three instances of the app, behind Nginx — demonstrates horizontal scaling.
+  app1:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+      UPSTASH_REDIS_REST_URL: http://redis-rest-proxy:80
+      UPSTASH_REDIS_REST_TOKEN: local_dev_token
+      KAFKA_BROKER: kafka:9092
+      CLICKHOUSE_URL: http://clickhouse:8123
+    depends_on:
+      - postgres
+      - redis-rest-proxy
+
+  app2:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+      UPSTASH_REDIS_REST_URL: http://redis-rest-proxy:80
+      UPSTASH_REDIS_REST_TOKEN: local_dev_token
+      KAFKA_BROKER: kafka:9092
+      CLICKHOUSE_URL: http://clickhouse:8123
+    depends_on:
+      - postgres
+      - redis-rest-proxy
+
+  app3:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+      UPSTASH_REDIS_REST_URL: http://redis-rest-proxy:80
+      UPSTASH_REDIS_REST_TOKEN: local_dev_token
+      KAFKA_BROKER: kafka:9092
+      CLICKHOUSE_URL: http://clickhouse:8123
+    depends_on:
+      - postgres
+      - redis-rest-proxy
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app1
+      - app2
+      - app3
+
+  # --- Layer 5: analytics pipeline ---
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+volumes:
+  pgdata:
+  clickhouse_data:

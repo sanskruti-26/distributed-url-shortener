@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Dependency audit (high severity only)
+        run: npm audit --audit-level=high
+        continue-on-error: true # don't block CI on this yet, but surface it
+
+      - name: Build
+        env:
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
+        run: npm run build
