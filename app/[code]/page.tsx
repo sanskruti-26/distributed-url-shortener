@@ -22,9 +22,13 @@ export default async function RedirectPage({
   let longUrl: string;
 
   if (cached) {
+    // TEMP: remove after Day 2 testing
+    console.log(`[cache HIT]  ${cacheKey}`);
     urlId = cached.id;
     longUrl = cached.longUrl;
   } else {
+    // TEMP: remove after Day 2 testing
+    console.log(`[cache MISS] ${cacheKey} — querying Postgres`);
     // Cache miss — go to Postgres, then populate the cache for next time.
     const url = await db.url.findUnique({ where: { shortCode: params.code } });
     if (!url) {
