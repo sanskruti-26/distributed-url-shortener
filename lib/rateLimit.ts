@@ -1,43 +1,37 @@
 import { redis } from "@/lib/redis";
 
-// Token bucket algorithm:
-// Each identifier (IP/user) has a "bucket" holding up to CAPACITY tokens.
-// Every request costs 1 token. Tokens refill at REFILL_RATE per second.
-// If the bucket is empty, the request is rejected.
-// This allows short bursts (up to full capacity) while still enforcing a
-// steady average rate over time — friendlier than a hard fixed-window limit.
+// Fixed-window counter rate limiter using Redis INCR.
+//
+// Why this instead of the token bucket read-modify-write approach:
+// INCR is a single atomic Redis operation — there's no window between
+// read and write where concurrent requests can race. The previous token
+// bucket implementation had a race condition: 20 parallel requests could
+// all read the same count before any wrote back, making the limit useless.
+//
+// Trade-off: fixed windows allow a burst at the boundary (up to 2× limit
+// if requests hit the last second of one window and first of the next).
+// Token bucket is smoother but requires a Lua script for atomicity in Redis.
+// For a portfolio project, atomic fixed-window is the right call.
 
-const CAPACITY = 10; // max burst size
-const REFILL_RATE = 1; // tokens added per second (~1 req/sec sustained)
-
-// NOTE: this read-then-write isn't atomic — under heavy concurrent traffic from
-// the same IP, two requests could both read the same token count before either
-// writes back, slightly over-allowing. A production system would use a Redis
-// Lua script (EVAL) to make the read-modify-write atomic. Left as a simplification
-// here, but worth knowing/mentioning — it's a real follow-up question interviewers ask.
+const MAX_REQUESTS = 10; // per window
+const WINDOW_SECONDS = 10; // rolling window size
 
 export async function checkRateLimit(
   identifier: string
 ): Promise<{ allowed: boolean; remaining: number }> {
-  const key = `ratelimit:${identifier}`;
-  const now = Date.now();
+  const window = Math.floor(Date.now() / (WINDOW_SECONDS * 1000));
+  const key = `ratelimit:${identifier}:${window}`;
 
-  const bucket = await redis.get<{ tokens: number; lastRefill: number }>(key);
+  // INCR is atomic — no race condition possible here.
+  const count = await redis.incr(key);
 
-  let tokens = bucket?.tokens ?? CAPACITY;
-  const lastRefill = bucket?.lastRefill ?? now;
-
-  // Refill based on elapsed time since last request
-  const elapsedSeconds = (now - lastRefill) / 1000;
-  tokens = Math.min(CAPACITY, tokens + elapsedSeconds * REFILL_RATE);
-
-  if (tokens < 1) {
-    await redis.set(key, { tokens, lastRefill: now }, { ex: 60 });
-    return { allowed: false, remaining: 0 };
+  // Set expiry only on first request in this window so the key auto-cleans.
+  if (count === 1) {
+    await redis.expire(key, WINDOW_SECONDS * 2);
   }
 
-  tokens -= 1;
-  await redis.set(key, { tokens, lastRefill: now }, { ex: 60 });
+  const allowed = count <= MAX_REQUESTS;
+  const remaining = Math.max(0, MAX_REQUESTS - count);
 
-  return { allowed: true, remaining: Math.floor(tokens) };
+  return { allowed, remaining };
 }
