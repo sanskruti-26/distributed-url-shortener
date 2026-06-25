@@ -11,7 +11,7 @@ import { createClient } from "@clickhouse/client";
 
 const kafka = new Kafka({
   clientId: "click-consumer",
-  brokers: [process.env.KAFKA_BROKER ?? "localhost:9092"],
+ brokers: [process.env.KAFKA_BROKER ?? "localhost:9092"],
 });
 
 const clickhouse = createClient({
@@ -31,12 +31,17 @@ async function run() {
       if (!message.value) return;
       const event = JSON.parse(message.value.toString());
 
+      // ClickHouse DateTime only accepts "YYYY-MM-DD HH:MM:SS" (no ms, no Z).
+      // Parsing via Date then slicing the ISO string is the safest conversion.
+      const timestamp = new Date(event.timestamp).toISOString().slice(0, 19).replace("T", " ");
+      console.log("Inserting:", event.shortCode, timestamp);
+
       await clickhouse.insert({
         table: "click_events",
         values: [
           {
             short_code: event.shortCode,
-            timestamp: event.timestamp.replace("T", " ").replace("Z", ""),
+            timestamp,
             referrer: event.referrer ?? "",
           },
         ],

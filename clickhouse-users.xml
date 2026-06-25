@@ -1,0 +1,12 @@
+<clickhouse>
+  <users>
+    <default>
+      <!-- Allow connections from any IP (Docker bridge, host, containers).
+           The replace="replace" attribute overrides the localhost-only
+           restriction in the image's default-user.xml. -->
+      <networks replace="replace">
+        <ip>::/0</ip>
+      </networks>
+    </default>
+  </users>
+</clickhouse>
