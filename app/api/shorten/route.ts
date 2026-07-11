@@ -5,7 +5,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { validateUrl } from "@/lib/validateUrl";
 
 export async function POST(req: NextRequest) {
-  // Rate limit per IP using a token bucket. Vercel sets x-forwarded-for.
+  // Rate limit per IP using an atomic fixed-window counter. Vercel sets x-forwarded-for.
 const ip =
   req.headers.get("x-forwarded-for")?.split(",")[0] ||
   req.headers.get("x-real-ip") ||

@@ -4,7 +4,7 @@
 - Input validation: only http/https schemes accepted, rejects javascript:/data:/file: URIs
 - SSRF protection: rejects URLs pointing at localhost, private IP ranges, and the
   cloud metadata endpoint (169.254.169.254)
-- Rate limiting: token bucket per IP on the shorten endpoint, prevents basic abuse/spam
+- Rate limiting: atomic fixed-window counter (Redis INCR) per IP on the shorten endpoint, prevents basic abuse/spam
 - SQL injection: not applicable — Prisma uses parameterized queries throughout
 - XSS: user-submitted URLs are only ever used as `href` values (never rendered as HTML),
   so there's no script-injection surface in the current UI
