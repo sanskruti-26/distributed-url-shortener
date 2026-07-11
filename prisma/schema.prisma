@@ -14,4 +14,6 @@ model Url {
   longUrl    String
   clickCount Int      @default(0)
   createdAt  DateTime @default(now())
+
+  @@index([longUrl])
 }

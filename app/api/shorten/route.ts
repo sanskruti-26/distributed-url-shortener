@@ -31,6 +31,18 @@ const ip =
   }
 
   try {
+    // Idempotency: if this longUrl was already shortened, reuse that code
+    // instead of creating a duplicate row. Relies on the Url_longUrl_idx
+    // index (see prisma/schema.prisma) to keep this fast as the table grows.
+    // Note: two concurrent first-time requests for the same longUrl can still
+    // both miss this check and create two rows — there's no DB-level unique
+    // constraint enforcing it, only this app-level lookup.
+    const existing = await db.url.findFirst({ where: { longUrl } });
+    if (existing) {
+      const shortUrl = `${req.nextUrl.origin}/${existing.shortCode}`;
+      return NextResponse.json({ shortCode: existing.shortCode, shortUrl, longUrl });
+    }
+
     // Step 1: insert with a unique temporary placeholder to get an auto-increment id.
     // Using crypto.randomUUID() here (not a shared "" value) avoids a race condition
     // where two concurrent requests both try to insert shortCode: "" and collide on
