@@ -8,10 +8,10 @@ Built in layers — see BUILD_PLAN.md for what's done vs. pending.
 - Frontend + API: Next.js 14 (App Router), TypeScript
 - Database: PostgreSQL via Prisma ORM
 - Cache: Redis via Upstash REST client (works serverless on Vercel; locally via redis + serverless-redis-http proxy, see docker-compose.full.yml)
-- Rate limiting: token bucket, stored in Redis
+- Rate limiting: atomic fixed-window counter via Redis INCR (10 req/10s per IP)
 - Event streaming: Kafka (click events)
 - Analytics store: ClickHouse (aggregated click stats, separate from Postgres)
-- Horizontal scaling demo: 3 app containers behind Nginx (docker-compose.full.yml)
+- Horizontal scaling demo: 3 app containers behind Nginx (docker-compose.full.yml — designed, not yet verified running; see Layer 4 status below)
 - Deployment target: Vercel (app) + Railway or Supabase (Postgres) + Upstash (Redis prod)
 
 ## Conventions
@@ -28,8 +28,8 @@ Built in layers — see BUILD_PLAN.md for what's done vs. pending.
 ## Current layer status
 - [x] Layer 1: MVP shorten + redirect (Next.js + Postgres)
 - [x] Layer 2: Redis caching (cache-aside) — scaffolded, needs local Upstash/Docker test
-- [x] Layer 3: Rate limiting (token bucket via Redis) — scaffolded, needs testing
-- [x] Layer 4: Horizontal scaling / Docker / Nginx — scaffolded in docker-compose.full.yml + nginx.conf
+- [x] Layer 3: Rate limiting — atomic fixed-window counter via Redis INCR (10 req/10s per IP)
+- [x] Layer 4: Horizontal scaling / Docker / Nginx — designed (nginx.conf + compose config exist) but NOT verified/running. The app1/app2/app3/nginx/redis services were removed from docker-compose.full.yml in a later commit (only postgres/zookeeper/kafka/clickhouse remain); likely blocker is limited local RAM to run Postgres + 3 app containers + Nginx + Kafka + ClickHouse simultaneously
 - [x] Layer 5: Kafka + ClickHouse analytics pipeline — scaffolded, needs consumer running + ClickHouse table created
 - [ ] Layer 6: Observability + CI/CD + Kubernetes — basic CI added (.github/workflows/ci.yml: type-check, lint, build, dependency audit). Prometheus/Grafana/Kubernetes still not started, optional stretch beyond the 3-4 day deadline
 
