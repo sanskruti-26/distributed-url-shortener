@@ -1,0 +1,57 @@
+version: "3.8"
+
+# Trimmed-down compose file to verify Layer 4 (Nginx + 3 app containers) in
+# isolation, without Kafka/Zookeeper/ClickHouse/Redis. Those aren't needed
+# to prove round-robin load balancing: app/page.tsx (the route we hit
+# through Nginx) is a static client component with no DB/Redis/Kafka calls.
+#
+# Only app1 has a `build:` key — app2/app3 reuse the same tagged image
+# instead of each triggering their own `npm run build` inside Docker.
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: urlshortener
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app1:
+    build: .
+    image: url-shortener-app:layer4
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+    depends_on:
+      - postgres
+
+  app2:
+    image: url-shortener-app:layer4
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+    depends_on:
+      - postgres
+
+  app3:
+    image: url-shortener-app:layer4
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+    depends_on:
+      - postgres
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app1
+      - app2
+      - app3
+
+volumes:
+  pgdata:
