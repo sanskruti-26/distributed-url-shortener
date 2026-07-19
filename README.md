@@ -17,6 +17,22 @@ npm run dev
 ```
 Visit http://localhost:3000
 
+## Measured performance
+- Redirect latency, Redis cache warm: p50 180.8ms / p99 657.3ms
+- Redirect latency, Redis cache cold (Postgres hit): p50 885.6ms / p99 6743.4ms
+- Cache speedup: 4.90x faster at p50 (10.26x at p99) with a warm cache
+
+Methodology: 50 fresh short URLs created via `/api/shorten`, each hit once
+(guaranteed cache miss → Postgres path) then hit again (guaranteed cache hit
+→ Redis path), measuring wall-clock time to the redirect response per
+request (`scripts/measure-latency.ts`, run via `npm run measure:latency`).
+Measured against a production build (`next build && next start`) hitting
+real infra — Railway Postgres and Upstash Redis, not local/loopback — so
+these numbers include real network latency, not just in-process work. The
+cold-path p99/max (6743.4ms) reflects a small number of outliers on this
+memory-constrained dev machine, not a steady-state number; p50 is the more
+representative figure for both paths.
+
 ## Resilience test: container failure under load
 - Test: autocannon load test, 10 connections, 30s duration, against
   http://localhost:8080/, with app2 killed mid-flight (docker kill)

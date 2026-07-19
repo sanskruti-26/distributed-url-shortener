@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "consumer": "tsx scripts/consumer.ts",
     "seed": "tsx prisma/seed.ts",
-    "test:idempotency": "tsx scripts/test-idempotency.ts"
+    "test:idempotency": "tsx scripts/test-idempotency.ts",
+    "measure:latency": "tsx scripts/measure-latency.ts"
   },
   "dependencies": {
     "@clickhouse/client": "^1.5.0",
