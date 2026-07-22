@@ -74,6 +74,12 @@ export default function Home() {
           </a>
         </p>
       )}
+
+      <p style={{ marginTop: 40 }}>
+        <a href="/system-health" style={{ color: "#898781", fontSize: 13 }}>
+          System health →
+        </a>
+      </p>
     </main>
   );
 }

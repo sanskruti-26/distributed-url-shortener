@@ -23,6 +23,7 @@ services:
   app1:
     build: .
     image: url-shortener-app:layer4
+    pull_policy: never
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
     depends_on:
@@ -30,6 +31,7 @@ services:
 
   app2:
     image: url-shortener-app:layer4
+    pull_policy: never
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
     depends_on:
@@ -37,6 +39,7 @@ services:
 
   app3:
     image: url-shortener-app:layer4
+    pull_policy: never
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
     depends_on:
